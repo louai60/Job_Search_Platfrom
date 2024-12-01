@@ -1,57 +1,32 @@
-from django.contrib.auth import login, authenticate
+from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
-from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
-from django.contrib.auth.forms import UserCreationForm
-from django.shortcuts import render
-# from django.contrib.auth.decorators import login_required
+from rest_framework import status, permissions
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from .serializers import UserSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 
-@require_http_methods(["POST"])
-def register(request):
-    form = UserCreationForm(request.POST)
-    if form.is_valid():
-        user = form.save()
-        login(request, user)
-        return JsonResponse({'message': 'User registered successfully'}, status=201)
-    return JsonResponse({'error': form.errors}, status=400)
+class SignupView(APIView):
+    permission_classes = [permissions.AllowAny]
 
-@require_http_methods(["POST"])
-def login_user(request):
-    username = request.POST.get('username')
-    password = request.POST.get('password')
-    user = authenticate(request, username=username, password=password)
-    if user is not None:
-        login(request, user)
-        return JsonResponse({'message': 'Login successful'}, status=200)
-    return JsonResponse({'error': 'Invalid credentials'}, status=400)
+    def post(self, request):
+        serializer = UserSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# @login_required
-def user_profile(request):
-    # Commenting out the authentication check
-    # if request.user.is_authenticated:
-    user_data = {
-        'username': request.user.username,
-        'email': request.user.email,
-        'role': request.user.userprofile.role,  
-    }
-    return JsonResponse(user_data, status=200)
-    # return JsonResponse({'error': 'User not authenticated'}, status=401)
+class SigninView(APIView):
+    permission_classes = [permissions.AllowAny]
 
-
-# def user_profile(request):
-#     # Check if the user is authenticated; otherwise, return default values or an empty response
-#     if request.user.is_authenticated:
-#         user_data = {
-#             'username': request.user.username,
-#             'email': request.user.email,
-#             'role': request.user.userprofile.role,  
-#         }
-#     else:
-#         # Default values for unauthenticated users
-#         user_data = {
-#             'username': 'Guest',
-#             'email': 'Not logged in',
-#             'role': 'Unknown'
-#         }
-    
-#     return JsonResponse(user_data, status=200)
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+        user = authenticate(username=username, password=password)
+        if user:
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            })
+        return Response({'error': 'Invalid Credentials'}, status=status.HTTP_401_UNAUTHORIZED)
