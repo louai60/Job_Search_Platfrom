@@ -21,7 +21,7 @@ class Migration(migrations.Migration):
                 ('skills', models.TextField()),
                 ('experience', models.TextField()),
                 ('education', models.TextField()),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='users.userprofile')),
+                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='users.CustomUser')),
             ],
         ),
     ]
