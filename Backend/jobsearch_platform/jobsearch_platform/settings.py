@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from pathlib import Path
 import os
 from datetime import timedelta
+from dotenv import load_dotenv
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -207,3 +208,58 @@ SIMPLE_JWT = {
 
 AUTH_USER_MODEL = 'users.CustomUser'
 
+load_dotenv()
+
+# Retrieve the Hugging Face API token from environment variables
+HUGGINGFACE_API_TOKEN = os.getenv('HUGGINGFACE_API_TOKEN')
+
+if not HUGGINGFACE_API_TOKEN:
+    raise ValueError("Hugging Face API token is not set in the .env file")
+
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = True  
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SECURE = True  # Set to True if using HTTPS
+APPEND_SLASH = False  # Default is True, set to False if you handle URLs without slashes
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': 'debug.log',
+            'formatter': 'verbose',
+        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        '': {  # root logger
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}
