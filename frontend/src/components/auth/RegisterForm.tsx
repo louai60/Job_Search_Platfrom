@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { registerSuccess, registerFailure } from '../../features/auth/authSlice';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -35,7 +34,6 @@ export const RegisterForm = () => {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     
-    // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
       toast.error("Passwords don't match!");
       return;
@@ -52,7 +50,7 @@ export const RegisterForm = () => {
 
       dispatch(registerSuccess(response.user));
       toast.success('Registration successful!');
-      navigate('/');
+      navigate('/dashboard');
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Registration failed';
       dispatch(registerFailure(errorMessage));
@@ -63,110 +61,122 @@ export const RegisterForm = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <Card className="w-[400px]">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Create an account</CardTitle>
-          <CardDescription className="text-center">
-            Enter your information to create your account
-          </CardDescription>
-        </CardHeader>
+    <div className="flex items-center justify-center min-h-screen bg-white text-black">
+      <div className="w-[400px]">
+        <div className="space-y-1 text-center mb-6">
+          <h1 className="text-2xl font-bold">Create an Account</h1>
+          <p className="text-sm text-gray-500">Enter your details to get started!</p>
+        </div>
         <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            {/* Email Field */}
+          <div className="space-y-4">
+            <Button className="w-full bg-gray-100 text-black border border-gray-300 hover:bg-gray-200">
+              <span className="flex items-center justify-center">
+                <img src="/path/to/google-icon.png" alt="Google" className="h-5 w-5 mr-2" />
+                Sign up with Google
+              </span>
+            </Button>
+
+            <div className="flex items-center justify-between my-4">
+              <hr className="w-full border-gray-300" />
+              <span className="px-2 text-sm text-gray-500">or</span>
+              <hr className="w-full border-gray-300" />
+            </div>
+
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-gray-700">Email</Label>
               <Input
                 id="email"
                 name="email"
                 type="email"
-                placeholder="m@example.com"
+                placeholder="mail@example.com"
                 value={formData.email}
                 onChange={handleChange}
                 required
                 disabled={isLoading}
+                className="bg-white border border-gray-300"
               />
             </div>
 
-            {/* First Name Field */}
-            <div className="space-y-2">
-              <Label htmlFor="firstName">First Name</Label>
-              <Input
-                id="firstName"
-                name="firstName"
-                type="text"
-                placeholder="John"
-                value={formData.firstName}
-                onChange={handleChange}
-                required
-                disabled={isLoading}
-              />
+            <div className="flex gap-4">
+              <div className="space-y-2 flex-1">
+                <Label htmlFor="firstName" className="text-gray-700">First Name</Label>
+                <Input
+                  id="firstName"
+                  name="firstName"
+                  type="text"
+                  placeholder="John"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  required
+                  disabled={isLoading}
+                  className="bg-white border border-gray-300"
+                />
+              </div>
+
+              <div className="space-y-2 flex-1">
+                <Label htmlFor="lastName" className="text-gray-700">Last Name</Label>
+                <Input
+                  id="lastName"
+                  name="lastName"
+                  type="text"
+                  placeholder="Doe"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  required
+                  disabled={isLoading}
+                  className="bg-white border border-gray-300"
+                />
+              </div>
             </div>
 
-            {/* Last Name Field */}
             <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name</Label>
-              <Input
-                id="lastName"
-                name="lastName"
-                type="text"
-                placeholder="Doe"
-                value={formData.lastName}
-                onChange={handleChange}
-                required
-                disabled={isLoading}
-              />
-            </div>
-
-            {/* Password Field */}
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-gray-700">Password</Label>
               <Input
                 id="password"
                 name="password"
                 type="password"
+                placeholder="Min. 8 characters"
                 value={formData.password}
                 onChange={handleChange}
                 required
                 disabled={isLoading}
+                className="bg-white border border-gray-300"
               />
             </div>
 
-            {/* Confirm Password Field */}
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Label htmlFor="confirmPassword" className="text-gray-700">Confirm Password</Label>
               <Input
                 id="confirmPassword"
                 name="confirmPassword"
                 type="password"
+                placeholder="Min. 8 characters"
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 required
                 disabled={isLoading}
+                className="bg-white border border-gray-300"
               />
             </div>
-          </CardContent>
+          </div>
           
-          <CardFooter className="flex flex-col space-y-4">
+          <div className="flex flex-col space-y-4 mt-6">
             <Button 
               type="submit" 
-              className="w-full"
+              className="w-full bg-[#422AFB] hover:bg-[#3521c9] text-white"
               disabled={isLoading}
             >
               {isLoading ? 'Creating account...' : 'Create account'}
             </Button>
-            <p className="text-center text-sm text-gray-600">
+            <p className="text-center text-sm text-gray-500">
               Already have an account?{' '}
-              <Link 
-                to="/login" 
-                className="text-blue-500 hover:text-blue-600"
-              >
+              <Link to="/login" className="text-[#422AFB] hover:underline">
                 Sign in
               </Link>
             </p>
-          </CardFooter>
+          </div>
         </form>
-      </Card>
+      </div>
     </div>
   );
 };

@@ -2,35 +2,24 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { LoginForm } from './components/auth/LoginForm';
 import { RegisterForm } from './components/auth/RegisterForm';
-import Layout from './app/layout'; 
+import { Dashboard } from './pages/Dashboard';
 import { Toaster } from '@/components/ui/sonner';
-
+import Home from './pages/Home';
+import { ResumeDetails } from './components/ResumeDetails';
 function App() {
   return (
     <Router>
       <Toaster position="top-right" />
       <Routes>
         {/* Login Route (outside the Layout) */}
+        <Route path="/" element={<Home />} />
         <Route path="/login" element={<LoginForm />} />
         <Route path="/register" element={<RegisterForm />} />
+        
+        <Route path="/dashboard" element={<Dashboard />} />
 
-        {/* Layout Wrapping Routes */}
-        <Route
-          element={<Layout />}
-        >
+        <Route path="/resume/:resumeId" element={<ResumeDetails />} />
 
-          {/* Home Route inside Layout */}
-          <Route
-            path="/"
-            element={
-              <div>
-                <h1>Welcome to the App</h1>
-                <p>This is the main content area.</p>
-                <Link to="/login">Go to Login</Link>
-              </div>
-            }
-          />
-        </Route>
       </Routes>
     </Router>
   );

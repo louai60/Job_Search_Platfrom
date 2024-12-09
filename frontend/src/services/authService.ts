@@ -1,6 +1,4 @@
-import axios from 'axios';
-
-const API_URL = 'http://localhost:8000/api/users/';
+import axios from '../lib/axiosInstance';
 
 interface RegisterData {
   email: string;
@@ -26,23 +24,32 @@ interface AuthResponse {
 
 const authService = {
   register: async (data: RegisterData): Promise<AuthResponse> => {
-    const response = await axios.post(`${API_URL}signup/`, data);
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token);
+    const response = await axios.post('/users/register/', data);
+    console.log('Register response:', response.data);
+    if (response.data.access) {
+      localStorage.setItem('accessToken', response.data.access);
+      localStorage.setItem('refreshToken', response.data.refresh);
+    } else {
+      console.error('Access token not found in response:', response.data);
     }
     return response.data;
   },
 
   login: async (data: LoginData): Promise<AuthResponse> => {
-    const response = await axios.post(`${API_URL}signin/`, data);
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token);
+    const response = await axios.post('/users/login/', data);
+    console.log('Login response:', response.data);
+    if (response.data.access) {
+      localStorage.setItem('accessToken', response.data.access);
+      localStorage.setItem('refreshToken', response.data.refresh);
+    } else {
+      console.error('Access token not found in response:', response.data);
     }
     return response.data;
   },
 
   logout: () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
   },
 };
 
