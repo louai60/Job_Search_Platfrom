@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from django.db import transaction
 from .serializers import ResumeSerializer
 from .models import Resume
-from .huggingface_parser import parse_resume_with_huggingface
+from .spacy_parser import parse_resume_with_spacy
 import logging
 
 from PyPDF2 import PdfReader  
@@ -77,48 +77,27 @@ def upload_resume_and_parse(request):
                         'error': f"Failed to extract text from the uploaded file. Error: {str(e)}"
                     }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
                 
-                # Parse resume text using HuggingFace API
-                try:
-                    logger.info("Parsing resume text using HuggingFace model")
-                    parsed_data = parse_resume_with_huggingface(resume_text)
-                    logger.debug(f"Parsed Data: {parsed_data}")  # Log the raw response to check its structure
-                    
-                    # Ensure parsed_data is a list and contains the expected format
-                    if not isinstance(parsed_data, list):
-                        raise ValueError(f"Expected parsed data to be a list, but got {type(parsed_data)}")
-                    
-                    # Extract entities (e.g., skills, experience)
-                    entities = parsed_data[0]  # Assuming entities are in the first item
-                    if not isinstance(entities, list):
-                        raise ValueError("Parsed entities should be a list.")
-
-                    skills = [entity['word'] for entity in entities if entity['entity_group'] == 'SKILL']
-                    experience = [entity['word'] for entity in entities if entity['entity_group'] == 'EXPERIENCE']
-                    logger.info(f"Parsed skills: {skills}")
-                    logger.info(f"Parsed experience: {experience}")
-
-                except Exception as e:
-                    logger.error(f"Failed to parse resume text: {str(e)}")
-                    return Response({
-                        'error': f"Failed to parse resume text: {str(e)}"
-                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-                # Log the parsed data for debugging
-                logger.debug(f"Parsed Data: {parsed_data}")
-
-                # Update resume with parsed data
-                update_resume_with_parsed_data(resume, parsed_data)
+                # Use spaCy to parse the resume text
+                parsed_data = parse_resume_with_spacy(resume_text)
                 
+                if 'error' in parsed_data:
+                    return Response({'error': parsed_data['error']}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+                # Assuming you have logic to handle the parsed data, such as saving it to the database
+                # Update the resume instance with parsed data
+                resume.parsed_data = parsed_data
+                resume.save()
+
                 # Trigger job matching (implement job matching logic if needed)
-                matching_jobs = find_matching_jobs(resume)
+                # Commenting out the job matching logic as per instructions
+                # matching_jobs = find_matching_jobs(resume)
                 
                 logger.info(f"Resume processed successfully for user: {request.user.id}")
                 return Response({
                     'message': 'Resume processed successfully',
                     'data': ResumeSerializer(resume).data,
-                    'matching_jobs': matching_jobs
+                    # 'matching_jobs': matching_jobs
                 }, status=status.HTTP_201_CREATED)
-            
             logger.warning(f"Invalid resume data for user: {request.user.id}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
