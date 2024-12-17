@@ -1,17 +1,16 @@
-from django.core.files.storage import FileSystemStorage
+from transformers import pipeline
+from django.db import transaction
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django.db import transaction
+import logging
 from .serializers import ResumeSerializer
 from .models import Resume
-from .huggingface_parser import parse_resume_with_huggingface
-import logging
-
-from PyPDF2 import PdfReader  
-import docx  
-from django.utils.text import get_valid_filename  
+from .huggingface_parser import parse_resume_with_api
+from .summarize_resume import summarize_text
+from .pdf_extractor import extract_text_pdf, extract_text_docx, extract_text_txt, extract_text_rtf_odt
+from django.utils.text import get_valid_filename
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -35,120 +34,88 @@ def extract_text_from_resume(file):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def upload_resume_and_parse(request):
+def upload_and_process_resume(request):
+    """
+    Handles the upload of a resume and processes it using Hugging Face transformers.
+    """
     try:
         with transaction.atomic():
             # Deactivate previous resumes for the user
             Resume.objects.filter(user=request.user, is_active=True).update(is_active=False)
-            
+
             # Serialize and validate incoming data
             serializer = ResumeSerializer(data=request.data)
             if serializer.is_valid():
                 resume = serializer.save(user=request.user)
-                
-                # Get the resume file
+
+                # Extract text from the uploaded resume
                 file = resume.file
-                file_name = get_valid_filename(file.name)
+                logger.info(f"Extracting text from file: {file.name}")
+                extracted_data = extract_text_from_resume(file)
 
-                # Extract text based on file type
-                try:
-                    logger.info(f"Extracting text from resume file: {file_name}")
-                    if file_name.endswith('.pdf'):
-                        reader = PdfReader(file)
-                        resume_text = ' '.join(page.extract_text() for page in reader.pages)
+                if "error" in extracted_data:
+                    raise ValueError(extracted_data["error"])
 
-                    elif file_name.endswith('.docx'):
-                        doc = docx.Document(file)
-                        resume_text = ' '.join(paragraph.text for paragraph in doc.paragraphs)
+                resume_text = extracted_data["text"]
 
-                    elif file_name.endswith('.txt'):
-                        resume_text = file.read().decode('utf-8', errors='ignore')
+                # Summarize the extracted text
+                logger.info("Summarizing the extracted resume text.")
+                summary = summarize_text(resume_text)
 
-                    else:
-                        return Response({
-                            'error': 'Unsupported file format. Please upload .pdf, .docx, or .txt files.'
-                        }, status=status.HTTP_400_BAD_REQUEST)
+                if "error" in summary:
+                    raise ValueError(summary["error"])
 
-                    logger.info(f"Text extraction successful for {file_name}")
+                # Parse the summarized text for skills, experience, education, and projects
+                logger.info("Parsing the summarized resume text.")
+                parsed_data = parse_resume_with_api(summary)
 
-                except Exception as e:
-                    logger.error(f"Failed to extract text from file {file_name}: {str(e)}")
-                    return Response({
-                        'error': f"Failed to extract text from the uploaded file. Error: {str(e)}"
-                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-                
-                # Parse resume text using HuggingFace API
-                try:
-                    logger.info("Parsing resume text using HuggingFace model")
-                    parsed_data = parse_resume_with_huggingface(resume_text)
-                    logger.debug(f"Parsed Data: {parsed_data}")  # Log the raw response to check its structure
-                    
-                    # Ensure parsed_data is a list and contains the expected format
-                    if not isinstance(parsed_data, list):
-                        raise ValueError(f"Expected parsed data to be a list, but got {type(parsed_data)}")
-                    
-                    # Extract entities (e.g., skills, experience)
-                    entities = parsed_data[0]  # Assuming entities are in the first item
-                    if not isinstance(entities, list):
-                        raise ValueError("Parsed entities should be a list.")
+                if "error" in parsed_data:
+                    raise ValueError(parsed_data["error"])
 
-                    skills = [entity['word'] for entity in entities if entity['entity_group'] == 'SKILL']
-                    experience = [entity['word'] for entity in entities if entity['entity_group'] == 'EXPERIENCE']
-                    logger.info(f"Parsed skills: {skills}")
-                    logger.info(f"Parsed experience: {experience}")
+                # Save parsed data back to the resume
+                resume.parsed_data = parsed_data
+                # resume.skills = parsed_data.get("skills", [])
+                # resume.experience = parsed_data.get("experience", [])
+                # resume.education = parsed_data.get("education", [])
+                # resume.projects = parsed_data.get("projects", [])
+                resume.save()
 
-                except Exception as e:
-                    logger.error(f"Failed to parse resume text: {str(e)}")
-                    return Response({
-                        'error': f"Failed to parse resume text: {str(e)}"
-                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-                # Log the parsed data for debugging
-                logger.debug(f"Parsed Data: {parsed_data}")
-
-                # Update resume with parsed data
-                update_resume_with_parsed_data(resume, parsed_data)
-                
-                # Trigger job matching (implement job matching logic if needed)
-                matching_jobs = find_matching_jobs(resume)
-                
-                logger.info(f"Resume processed successfully for user: {request.user.id}")
+                logger.info(f"Resume processed successfully for user {request.user.id}")
                 return Response({
-                    'message': 'Resume processed successfully',
-                    'data': ResumeSerializer(resume).data,
-                    'matching_jobs': matching_jobs
+                    "message": "Resume processed successfully",
+                    "data": ResumeSerializer(resume).data
                 }, status=status.HTTP_201_CREATED)
-            
-            logger.warning(f"Invalid resume data for user: {request.user.id}")
+
+            logger.warning("Invalid resume data")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     except Exception as e:
-        logger.error(f"Unhandled exception in upload_resume_and_parse for user {request.user.id}: {str(e)}")
+        logger.error(f"Error processing resume: {str(e)}")
         return Response({
-            'error': f'Error processing resume: {str(e)}'
+            "error": f"Error processing resume: {str(e)}"
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])  
+@permission_classes([IsAuthenticated])
 def get_resume_details(request, resume_id):
+    """
+    Retrieves the details of a specific resume.
+    """
     try:
         resume = Resume.objects.get(id=resume_id, user=request.user)
         serializer = ResumeSerializer(resume)
         return Response(serializer.data, status=status.HTTP_200_OK)
     except Resume.DoesNotExist:
         logger.error(f"Resume with ID {resume_id} not found for user {request.user.id}")
-        return Response({
-            'error': 'Resume not found'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return Response({"error": "Resume not found"}, status=status.HTTP_404_NOT_FOUND)
 
 def update_resume_with_parsed_data(resume, parsed_data):
     try:
-        # Ensure parsed_data is a list and contains dictionaries
+        # Ensuring parsed_data is a list and contains dictionaries
         if not isinstance(parsed_data, list) or not all(isinstance(item, dict) for item in parsed_data):
             raise ValueError("Parsed data is not in the expected format: List of dictionaries required.")
 
-        # Process each entity in the parsed data
+        # Processing each entity in the parsed data
         for entity in parsed_data:
             entity_group = entity.get('entity_group')
             if entity_group == 'SKILL':

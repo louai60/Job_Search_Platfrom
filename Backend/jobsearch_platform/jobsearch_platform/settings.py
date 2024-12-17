@@ -212,9 +212,12 @@ load_dotenv()
 
 # Retrieve the Hugging Face API token from environment variables
 HUGGINGFACE_API_TOKEN = os.getenv('HUGGINGFACE_API_TOKEN')
+# RESUME_PARSER_API_KEY = os.getenv('RESUME_PARSER_API_KEY')
+# NLPCLOUD_API_TOKEN = os.getenv('NLPCLOUD_API_TOKEN')
+# DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
 
 if not HUGGINGFACE_API_TOKEN:
-    raise ValueError("Hugging Face API token is not set in the .env file")
+    raise ValueError("Resume Parser API token is not set in the .env file")
 
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = True  

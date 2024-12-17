@@ -4,48 +4,48 @@ import logging
 import os
 import subprocess
 import tempfile
-import pdfplumber  # Optional: to improve PDF extraction
-import pdfminer  # Optional: for complex PDFs
+
+logger = logging.getLogger(__name__)
+
+# from PyMuPDF import fitz  
+
+import pdfplumber
 
 logger = logging.getLogger(__name__)
 
 def extract_text_pdf(file):
-    """Extract text from a PDF file using PdfReader and pdfplumber for complex layouts."""
+    """Extract text from a PDF file using pdfplumber."""
     try:
         file.seek(0)  # Ensure the file pointer is at the beginning
-        reader = PdfReader(file)
-        text = []
-
-        for page_num, page in enumerate(reader.pages):
-            page_text = page.extract_text()
-            if page_text:
-                text.append(page_text)
-            else:
-                logger.warning(f"Page {page_num + 1} did not contain extractable text.")
+        with pdfplumber.open(file) as pdf:
+            text = []
+            for page_num, page in enumerate(pdf.pages):
+                page_text = page.extract_text()
+                if page_text:
+                    text.append(page_text)
+                else:
+                    logger.warning(f"Page {page_num+1} did not contain extractable text.")
         
         extracted_text = "\n".join(text)
 
-        # If no text extracted by PdfReader, try using pdfplumber (more reliable for complex PDFs)
         if not extracted_text:
-            logger.info("Attempting to extract text using pdfplumber for complex layouts...")
-            with pdfplumber.open(file) as pdf:
-                for page in pdf.pages:
-                    extracted_text += page.extract_text()  # Extract with pdfplumber
-                if not extracted_text:
-                    raise ValueError("No text could be extracted from the PDF using both PyPDF2 and pdfplumber.")
+            raise ValueError("No text could be extracted from the PDF")
 
-        logger.debug(f"PDF Extraction - Pages: {len(reader.pages)}, Characters: {len(extracted_text)}")
+        logger.debug(f"----------------------------------------Extracted PDF Text-------------------------------------: {extracted_text}")
+        logger.debug(f"PDF Extraction - Pages: {len(pdf.pages)}, Characters: {len(extracted_text)}")
         return extracted_text.strip()
 
     except Exception as e:
         logger.error(f"Error extracting text from PDF: {str(e)}")
         raise
 
+
 def extract_text_docx(file):
     """Extract text from a DOCX file."""
     try:
         doc = docx.Document(file)
-        text = "\n".join([paragraph.text for paragraph in doc.paragraphs if paragraph.text.strip()])
+        text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+        logger.debug(f"Extracted DOCX Text: {text}")
         return text.strip()
     except Exception as e:
         logger.error(f"Error extracting text from DOCX: {str(e)}")
@@ -55,6 +55,7 @@ def extract_text_txt(file):
     """Extract text from a TXT file."""
     try:
         text = file.read().decode('utf-8')
+        logger.debug(f"Extracted TXT Text: {text}")
         return text.strip()
     except Exception as e:
         logger.error(f"Error extracting text from TXT: {str(e)}")
@@ -86,7 +87,9 @@ def extract_text_rtf_odt(file):
         if result.returncode != 0:
             raise Exception(f"Pandoc conversion failed: {result.stderr}")
 
-        return result.stdout.strip()
+        extracted_text = result.stdout.strip()
+        logger.debug(f"Extracted RTF/ODT Text: {extracted_text}")
+        return extracted_text
 
     except Exception as e:
         logger.error(f"Error extracting text from RTF/ODT: {str(e)}")
